@@ -1,0 +1,10 @@
+# Environment files with sensitive credentials
+db.env
+
+# Node modules (if you add npm packages later)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
