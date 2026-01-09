@@ -167,43 +167,247 @@
             font-weight: 600;
             color: #333;
         }
+
+        /* Authentication Styles */
+        .auth-container {
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .auth-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+
+        .auth-tab:hover {
+            color: #667eea;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+
+        .auth-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            border-left: 4px solid #c33;
+            display: none;
+        }
+
+        .auth-error.show {
+            display: block;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .header {
+            position: relative;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 0.9em;
+        }
+
+        .user-email {
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>⚡ Ores Database</h1>
-            <p>Connected to Supabase</p>
+            <p id="header-subtitle">Connected to Supabase</p>
+            <div id="user-info" class="user-info" style="display: none;">
+                <span class="user-email" id="user-email"></span>
+                <button class="logout-btn" onclick="signOut()">Logout</button>
+            </div>
         </div>
         <div class="content">
-            <button class="refresh-btn" onclick="loadOres()">🔄 Refresh Data</button>
-            
-            <div id="stats" class="stats" style="display: none;">
-                <div class="stat-card">
-                    <h3>Total Ores</h3>
-                    <p id="total-count">0</p>
+            <!-- Authentication Container -->
+            <div id="auth-container" class="auth-container">
+                <div class="auth-header">
+                    <h2>Welcome</h2>
+                    <p>Please sign in or create an account</p>
                 </div>
-                <div class="stat-card">
-                    <h3>Average Strength</h3>
-                    <p id="avg-strength">0</p>
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="switchAuthMode('login')">Sign In</button>
+                    <button class="auth-tab" onclick="switchAuthMode('signup')">Sign Up</button>
                 </div>
+                <div id="auth-error" class="auth-error"></div>
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" name="email" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" name="password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="auth-btn">Sign In</button>
+                </form>
+                <!-- Signup Form -->
+                <form id="signup-form" class="auth-form" onsubmit="handleSignup(event)">
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" name="email" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" name="password" required autocomplete="new-password" minlength="6">
+                        <small style="color: #666; font-size: 0.85em; margin-top: 5px; display: block;">Password must be at least 6 characters</small>
+                    </div>
+                    <button type="submit" class="auth-btn">Create Account</button>
+                </form>
             </div>
 
-            <div id="error" class="error" style="display: none;"></div>
-            <div id="loading" class="loading">Loading ores data...</div>
-            <div id="table-container" class="table-container" style="display: none;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Strength</th>
-                            <th>Created At</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body">
-                    </tbody>
-                </table>
+            <!-- Table View (shown when authenticated) -->
+            <div id="table-view" style="display: none;">
+                <button class="refresh-btn" onclick="loadOres()">🔄 Refresh Data</button>
+                
+                <div id="stats" class="stats" style="display: none;">
+                    <div class="stat-card">
+                        <h3>Total Ores</h3>
+                        <p id="total-count">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Average Strength</h3>
+                        <p id="avg-strength">0</p>
+                    </div>
+                </div>
+
+                <div id="error" class="error" style="display: none;"></div>
+                <div id="loading" class="loading">Loading ores data...</div>
+                <div id="table-container" class="table-container" style="display: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Strength</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

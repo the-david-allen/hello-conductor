@@ -3,6 +3,7 @@ const SUPABASE_URL = 'https://ruwltlmovozahgoofmpi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_BU6nhQe_YgNuSOOsLO9d3g_vn_aXzRk';
 
 let supabaseClient = null;
+let currentUser = null;
 
 // Wait for Supabase library to load
 function waitForSupabase() {
@@ -51,8 +52,262 @@ function showError(message) {
     }
 }
 
+function showAuthError(message) {
+    const authErrorEl = document.getElementById('auth-error');
+    if (authErrorEl) {
+        authErrorEl.textContent = message;
+        authErrorEl.classList.add('show');
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            authErrorEl.classList.remove('show');
+        }, 5000);
+    }
+}
+
+function clearAuthError() {
+    const authErrorEl = document.getElementById('auth-error');
+    if (authErrorEl) {
+        authErrorEl.classList.remove('show');
+        authErrorEl.textContent = '';
+    }
+}
+
+// UI State Management
+function showAuthView() {
+    const authContainer = document.getElementById('auth-container');
+    const tableView = document.getElementById('table-view');
+    const userInfo = document.getElementById('user-info');
+    
+    if (authContainer) authContainer.style.display = 'block';
+    if (tableView) tableView.style.display = 'none';
+    if (userInfo) userInfo.style.display = 'none';
+}
+
+function showTableView() {
+    const authContainer = document.getElementById('auth-container');
+    const tableView = document.getElementById('table-view');
+    const userInfo = document.getElementById('user-info');
+    const userEmailEl = document.getElementById('user-email');
+    
+    if (authContainer) authContainer.style.display = 'none';
+    if (tableView) tableView.style.display = 'block';
+    if (userInfo && currentUser) {
+        userInfo.style.display = 'flex';
+        if (userEmailEl) userEmailEl.textContent = currentUser.email;
+    }
+    // Clear any auth errors when switching to table view
+    clearAuthError();
+}
+
+// Switch between login and signup forms
+window.switchAuthMode = function(mode) {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    clearAuthError();
+    
+    if (mode === 'login') {
+        if (loginForm) loginForm.classList.add('active');
+        if (signupForm) signupForm.classList.remove('active');
+        tabs.forEach(tab => {
+            if (tab.textContent === 'Sign In') {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+    } else if (mode === 'signup') {
+        if (loginForm) loginForm.classList.remove('active');
+        if (signupForm) signupForm.classList.add('active');
+        tabs.forEach(tab => {
+            if (tab.textContent === 'Sign Up') {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+    }
+};
+
+// Authentication Functions
+window.handleSignup = async function(event) {
+    event.preventDefault();
+    clearAuthError();
+    
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+    
+    // Validate password length
+    if (password.length < 6) {
+        showAuthError('Password must be at least 6 characters long.');
+        return;
+    }
+    
+    // Initialize Supabase if not already done
+    if (!supabaseClient) {
+        const initialized = await initSupabase();
+        if (!initialized) {
+            showAuthError('Failed to initialize connection. Please refresh the page.');
+            return;
+        }
+    }
+    
+    try {
+        const { data, error } = await supabaseClient.auth.signUp({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            throw error;
+        }
+        
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+            showAuthError('Account created! Please check your email to confirm your account before signing in.');
+            return;
+        }
+        
+        // If session is returned, user is automatically signed in
+        if (data.session) {
+            currentUser = data.user;
+            showTableView();
+            await window.loadOres();
+        }
+    } catch (err) {
+        console.error('Signup error:', err);
+        showAuthError(err.message || 'Failed to create account. Please try again.');
+    }
+};
+
+window.handleLogin = async function(event) {
+    event.preventDefault();
+    clearAuthError();
+    
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    // Initialize Supabase if not already done
+    if (!supabaseClient) {
+        const initialized = await initSupabase();
+        if (!initialized) {
+            showAuthError('Failed to initialize connection. Please refresh the page.');
+            return;
+        }
+    }
+    
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            throw error;
+        }
+        
+        currentUser = data.user;
+        showTableView();
+        await window.loadOres();
+    } catch (err) {
+        console.error('Login error:', err);
+        let errorMessage = err.message || 'Failed to sign in. Please try again.';
+        
+        // Provide more helpful error messages
+        if (errorMessage.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password. Please try again.';
+        } else if (errorMessage.includes('Email not confirmed')) {
+            errorMessage = 'Please check your email and confirm your account before signing in.';
+        }
+        
+        showAuthError(errorMessage);
+    }
+};
+
+window.signOut = async function() {
+    if (!supabaseClient) {
+        return;
+    }
+    
+    try {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            throw error;
+        }
+        
+        currentUser = null;
+        showAuthView();
+        // Clear form fields
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
+        document.getElementById('signup-email').value = '';
+        document.getElementById('signup-password').value = '';
+        clearAuthError();
+    } catch (err) {
+        console.error('Signout error:', err);
+        showAuthError('Failed to sign out. Please try again.');
+    }
+};
+
+// Check authentication state
+async function checkAuthState() {
+    // Initialize Supabase first
+    if (!supabaseClient) {
+        const initialized = await initSupabase();
+        if (!initialized) {
+            showAuthView();
+            return;
+        }
+    }
+    
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        if (error) {
+            throw error;
+        }
+        
+        if (session && session.user) {
+            currentUser = session.user;
+            showTableView();
+            await window.loadOres();
+        } else {
+            showAuthView();
+        }
+    } catch (err) {
+        console.error('Error checking auth state:', err);
+        showAuthView();
+    }
+}
+
+// Listen for auth state changes
+function setupAuthListener() {
+    if (!supabaseClient) {
+        return;
+    }
+    
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state changed:', event, session);
+        
+        if (event === 'SIGNED_IN' && session) {
+            currentUser = session.user;
+            showTableView();
+            window.loadOres();
+        } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            showAuthView();
+        }
+    });
+}
+
 // Load and display ores data - make sure it's in global scope
 window.loadOres = async function loadOres() {
+    // Only load if user is authenticated
+    if (!currentUser || !supabaseClient) {
+        console.log('User not authenticated, cannot load ores');
+        return;
+    }
     const loadingEl = document.getElementById('loading');
     const errorEl = document.getElementById('error');
     const tableContainer = document.getElementById('table-container');
@@ -178,6 +433,9 @@ window.loadOres = async function loadOres() {
 
 // Initialize when page loads
 window.addEventListener('DOMContentLoaded', async () => {
-    await window.loadOres();
+    // First initialize Supabase, then check auth state
+    await initSupabase();
+    setupAuthListener();
+    await checkAuthState();
 });
 
